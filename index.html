@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#E8704B" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="Today's Plan" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" href="icon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<title>Today's Plan</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #FAF8F5;
+    --card: #FFFFFF;
+    --ink: #2D2A26;
+    --ink-soft: #6B6660;
+    --ink-mute: #9C9690;
+    --line: #EFE9E0;
+    --line-strong: #E0D7C8;
+    --accent: #E8704B;
+    --accent-soft: #FFEDE5;
+    --done: #5FA8A0;
+    --warn: #C9954E;
+    --warn-soft: #FFFBF4;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { background: var(--bg); color: var(--ink); }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
+    line-height: 1.5;
+    padding: max(20px, env(safe-area-inset-top)) 18px calc(140px + env(safe-area-inset-bottom));
+    max-width: 600px;
+    margin: 0 auto;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 6px;
+  }
+  .greet { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+  .date  { font-size: 12px; color: var(--ink-mute); font-variant-numeric: tabular-nums; }
+  .subhead { font-size: 13px; color: var(--ink-soft); margin-bottom: 18px; }
+
+  /* Status pill (sync) */
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--ink-mute);
+    padding: 4px 10px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    margin-bottom: 18px;
+  }
+  .status-pill .dot {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--done);
+  }
+  .status-pill.error .dot { background: var(--accent); }
+  .status-pill.warn .dot { background: var(--warn); }
+  .status-pill button {
+    background: none; border: none; color: var(--accent);
+    font-size: 11px; cursor: pointer; padding: 0; margin-left: 4px;
+    font-family: inherit;
+  }
+
+  /* Energy */
+  .energy {
+    display: flex; gap: 6px; align-items: center;
+    padding: 12px 14px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    margin-bottom: 22px;
+    flex-wrap: wrap;
+  }
+  .energy-label { font-size: 12px; color: var(--ink-soft); margin-right: 4px; }
+  .energy-btn {
+    background: #F4EFE8; border: 1px solid transparent;
+    color: var(--ink);
+    padding: 8px 14px; border-radius: 999px;
+    font-size: 13px; cursor: pointer; font-family: inherit;
+    min-height: 36px; transition: all 0.15s;
+  }
+  .energy-btn.active { background: var(--accent); color: white; }
+  .energy-btn.active.medium { background: var(--warn); }
+  .energy-btn.active.low { background: #7A8F8C; }
+
+  /* Sections */
+  .section { margin-bottom: 24px; }
+  .section-title {
+    font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.12em; color: var(--ink-mute);
+    font-weight: 700; margin-bottom: 10px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .count {
+    background: #ECE5DA; color: var(--ink-soft);
+    padding: 1px 7px; border-radius: 999px;
+    font-size: 10px; letter-spacing: 0;
+  }
+
+  /* Focus */
+  .focus-list { display: flex; flex-direction: column; gap: 10px; }
+  .focus-item {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 16px;
+    display: flex; align-items: flex-start; gap: 12px;
+    position: relative; cursor: pointer;
+    min-height: 60px;
+    transition: all 0.15s;
+  }
+  .focus-item:active { transform: scale(0.99); }
+  .focus-item.next {
+    border-color: var(--accent); border-width: 2px;
+    padding: 15px;
+    background: var(--accent-soft);
+  }
+  .focus-item.next::before {
+    content: 'NEXT';
+    position: absolute; top: -8px; left: 14px;
+    background: var(--accent); color: white;
+    font-size: 9px; font-weight: 700; letter-spacing: 0.12em;
+    padding: 2px 8px; border-radius: 4px;
+  }
+  .focus-item.done { opacity: 0.5; }
+  .focus-item.done .focus-text { text-decoration: line-through; }
+
+  .check {
+    width: 26px; height: 26px;
+    border: 2px solid #C9C1B5;
+    border-radius: 8px; flex-shrink: 0;
+    margin-top: 1px;
+    display: flex; align-items: center; justify-content: center;
+    background: white;
+    transition: all 0.15s;
+  }
+  .focus-item.done .check { background: var(--done); border-color: var(--done); }
+  .focus-item.done .check::after { content: '✓'; color: white; font-size: 16px; font-weight: 700; }
+
+  .focus-body { flex: 1; min-width: 0; }
+  .focus-text { font-size: 16px; font-weight: 500; color: var(--ink); margin-bottom: 4px; word-wrap: break-word; }
+  .focus-meta { font-size: 12px; color: var(--ink-mute); }
+
+  .more-btn {
+    background: transparent; border: none;
+    color: var(--ink-mute); font-size: 20px;
+    padding: 4px 8px; cursor: pointer;
+    align-self: flex-start;
+    font-family: inherit;
+  }
+  .more-btn:active { color: var(--ink); }
+
+  /* Quick wins */
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    background: var(--card); border: 1px solid var(--line);
+    padding: 9px 14px; border-radius: 999px;
+    font-size: 13px; cursor: pointer; min-height: 38px;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: all 0.15s;
+  }
+  .chip.done { background: #E8F0EF; color: var(--done); border-color: #D0E1DE; text-decoration: line-through; }
+  .chip::before { content: '⚡'; font-size: 11px; opacity: 0.6; }
+
+  /* Thoughts */
+  .thought {
+    font-size: 13px; color: var(--ink-soft);
+    padding: 10px 12px; background: var(--warn-soft);
+    border-left: 3px solid #E8C77B; border-radius: 6px;
+    margin-bottom: 6px;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 10px;
+  }
+  .thought-time { font-size: 10px; color: var(--warn); flex-shrink: 0; font-variant-numeric: tabular-nums; }
+
+  /* Park */
+  .park-head { cursor: pointer; user-select: none; display: flex; align-items: center; gap: 6px; }
+  .park-head .toggle { font-size: 9px; color: var(--ink-mute); transition: transform 0.2s; }
+  .park-list.collapsed { display: none; }
+  .park-list { display: flex; flex-direction: column; gap: 4px; padding-left: 2px; }
+  .park-item {
+    font-size: 14px; color: var(--ink-soft);
+    padding: 8px 10px; border-radius: 6px;
+    display: flex; align-items: center; gap: 8px;
+    min-height: 36px;
+  }
+  .park-item::before { content: '·'; color: #C9C1B5; font-size: 20px; line-height: 0; }
+
+  /* Empty state */
+  .empty {
+    text-align: center; padding: 36px 20px;
+    background: var(--card); border: 2px dashed var(--line-strong);
+    border-radius: 14px; color: var(--ink-mute);
+  }
+  .empty-emoji { font-size: 32px; margin-bottom: 10px; display: block; }
+  .empty-title { font-size: 16px; color: var(--ink-soft); margin-bottom: 4px; font-weight: 500; }
+  .empty-sub { font-size: 13px; line-height: 1.5; }
+
+  /* Capture (sticky) */
+  .capture {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: linear-gradient(to top, var(--bg) 75%, rgba(250,248,245,0));
+    padding: 16px 18px calc(20px + env(safe-area-inset-bottom));
+    z-index: 50;
+  }
+  .capture-inner {
+    max-width: 600px; margin: 0 auto;
+    background: var(--card); border: 1.5px solid var(--line);
+    border-radius: 14px; padding: 4px 6px 4px 14px;
+    display: flex; align-items: center;
+    box-shadow: 0 4px 20px rgba(45,42,38,0.08);
+    transition: border-color 0.15s;
+  }
+  .capture-inner:focus-within { border-color: var(--accent); }
+  .capture-icon { color: #C9C1B5; font-size: 16px; margin-right: 4px; }
+  .capture input {
+    flex: 1; border: none; outline: none;
+    background: transparent; padding: 12px 0;
+    font-size: 16px; /* >=16px to prevent iOS zoom */
+    color: var(--ink); font-family: inherit;
+  }
+  .capture input::placeholder { color: #C9C1B5; }
+  .capture-send {
+    background: var(--ink); color: white;
+    border: none; padding: 10px 14px;
+    border-radius: 10px; font-size: 12px;
+    cursor: pointer; font-family: inherit;
+    font-weight: 500; opacity: 0.4;
+    min-height: 38px;
+    transition: opacity 0.15s;
+  }
+  .capture-send.active { opacity: 1; }
+
+  /* Settings overlay */
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(45, 42, 38, 0.6);
+    display: none; align-items: center; justify-content: center;
+    padding: 20px; z-index: 100;
+  }
+  .overlay.open { display: flex; }
+  .overlay-card {
+    background: var(--bg); border-radius: 18px;
+    padding: 24px; width: 100%; max-width: 480px;
+    max-height: 90vh; overflow-y: auto;
+  }
+  .overlay-title { font-size: 20px; font-weight: 600; margin-bottom: 6px; }
+  .overlay-sub { font-size: 13px; color: var(--ink-soft); margin-bottom: 20px; }
+  .field { margin-bottom: 14px; }
+  .field label {
+    display: block; font-size: 12px;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--ink-mute); font-weight: 600; margin-bottom: 6px;
+  }
+  .field input {
+    width: 100%; padding: 12px 14px;
+    border: 1.5px solid var(--line);
+    border-radius: 10px; font-size: 15px;
+    font-family: inherit; background: white;
+    color: var(--ink); outline: none;
+  }
+  .field input:focus { border-color: var(--accent); }
+  .field-help { font-size: 11px; color: var(--ink-mute); margin-top: 4px; }
+  .btn-row { display: flex; gap: 8px; margin-top: 18px; }
+  .btn {
+    padding: 12px 18px; border-radius: 10px;
+    border: 1px solid var(--line-strong);
+    background: var(--card); color: var(--ink);
+    font-size: 14px; font-family: inherit;
+    cursor: pointer; flex: 1; min-height: 44px;
+    font-weight: 500;
+  }
+  .btn.primary { background: var(--ink); color: white; border-color: var(--ink); }
+
+  /* Settings gear */
+  .gear {
+    position: fixed; top: max(18px, env(safe-area-inset-top)); right: 16px;
+    background: var(--card); border: 1px solid var(--line);
+    width: 38px; height: 38px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; z-index: 40;
+    color: var(--ink-soft); font-size: 16px;
+  }
+
+  /* Action sheet */
+  .sheet {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: var(--card);
+    border-top-left-radius: 18px; border-top-right-radius: 18px;
+    padding: 12px 14px calc(20px + env(safe-area-inset-bottom));
+    transform: translateY(100%); transition: transform 0.25s ease;
+    z-index: 90; box-shadow: 0 -10px 30px rgba(0,0,0,0.1);
+  }
+  .sheet.open { transform: translateY(0); }
+  .sheet-handle { width: 36px; height: 4px; background: var(--line-strong); border-radius: 2px; margin: 4px auto 14px; }
+  .sheet-item {
+    padding: 14px 16px; border-radius: 10px;
+    font-size: 15px; cursor: pointer; margin-bottom: 4px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .sheet-item:active { background: #F4EFE8; }
+  .sheet-item .icon { font-size: 18px; opacity: 0.7; }
+  .sheet-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(45,42,38,0.4);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.2s; z-index: 80;
+  }
+  .sheet-backdrop.open { opacity: 1; pointer-events: auto; }
+
+  /* Pull-to-refresh hint */
+  .refresh-indicator {
+    text-align: center; font-size: 12px;
+    color: var(--ink-mute); padding: 8px 0;
+    opacity: 0; transition: opacity 0.2s;
+  }
+  .refresh-indicator.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<button class="gear" id="gear-btn" title="Settings">⚙</button>
+
+<div class="header">
+  <div class="greet" id="greet">Hey, Abilash</div>
+  <div class="date" id="date"></div>
+</div>
+<div class="subhead">One thing at a time. The rest stays parked.</div>
+
+<div class="status-pill" id="status-pill">
+  <span class="dot"></span><span id="status-text">Loading…</span>
+  <button id="refresh-btn">refresh</button>
+</div>
+
+<div class="energy">
+  <span class="energy-label">Energy:</span>
+  <button class="energy-btn" data-level="high">⚡ Charged</button>
+  <button class="energy-btn medium" data-level="medium">🌤 Okay</button>
+  <button class="energy-btn low" data-level="low">🌫 Low</button>
+</div>
+
+<div class="section" id="focus-section">
+  <div class="section-title">Today's Focus <span class="count" id="focus-count">0</span></div>
+  <div id="focus-container"></div>
+</div>
+
+<div class="section" id="wins-section" style="display:none;">
+  <div class="section-title">Quick Wins (5-min)</div>
+  <div class="chips" id="wins-container"></div>
+</div>
+
+<div class="section" id="thoughts-section" style="display:none;">
+  <div class="section-title">Captured today <span class="count" id="thoughts-count">0</span></div>
+  <div id="thoughts-container"></div>
+</div>
+
+<div class="section" id="park-section" style="display:none;">
+  <div class="section-title park-head" id="park-head">
+    <span class="toggle" id="park-toggle">▶</span>
+    Parking Lot <span class="count" id="park-count">0</span>
+  </div>
+  <div class="park-list collapsed" id="park-container"></div>
+</div>
+
+<!-- Capture box -->
+<div class="capture">
+  <div class="capture-inner">
+    <span class="capture-icon">✎</span>
+    <input id="capture-input" type="text" placeholder="Capture a stray thought…" autocomplete="off" />
+    <button class="capture-send" id="capture-send">Save</button>
+  </div>
+</div>
+
+<!-- Action sheet for focus items -->
+<div class="sheet-backdrop" id="sheet-backdrop"></div>
+<div class="sheet" id="action-sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-item" data-action="toggle">
+    <span class="icon">✓</span>
+    <span>Toggle done</span>
+  </div>
+  <div class="sheet-item" data-action="next">
+    <span class="icon">↑</span>
+    <span>Make this NEXT</span>
+  </div>
+  <div class="sheet-item" data-action="defer">
+    <span class="icon">→</span>
+    <span>Defer to tomorrow</span>
+  </div>
+  <div class="sheet-item" data-action="park">
+    <span class="icon">⏸</span>
+    <span>Park it</span>
+  </div>
+</div>
+
+<!-- Settings overlay -->
+<div class="overlay" id="settings-overlay">
+  <div class="overlay-card">
+    <div class="overlay-title">Sync setup</div>
+    <div class="overlay-sub">Connects this page to the private GitHub Gist where your plan lives. Stored locally on this device only.</div>
+    <div class="field">
+      <label>GitHub Gist ID</label>
+      <input id="cfg-gist" type="text" placeholder="e.g. 4f8a3c2..." autocomplete="off" />
+      <div class="field-help">Found in your Gist's URL: gist.github.com/yourname/<b>this-part</b></div>
+    </div>
+    <div class="field">
+      <label>GitHub Personal Access Token</label>
+      <input id="cfg-token" type="password" placeholder="ghp_..." autocomplete="off" />
+      <div class="field-help">Needs only the "gist" scope. Stored only on this device.</div>
+    </div>
+    <div class="btn-row">
+      <button class="btn" id="cfg-cancel">Cancel</button>
+      <button class="btn primary" id="cfg-save">Save &amp; sync</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// =================== State & Storage ===================
+const LS_STATE = 'adhd-pwa-state-v1';
+const LS_CONFIG = 'adhd-pwa-config-v1';
+
+const todayStr = () => {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+};
+
+function loadConfig() {
+  try { return JSON.parse(localStorage.getItem(LS_CONFIG)) || {}; }
+  catch (e) { return {}; }
+}
+function saveConfig(c) { localStorage.setItem(LS_CONFIG, JSON.stringify(c)); }
+
+function loadState() {
+  try { return JSON.parse(localStorage.getItem(LS_STATE)); }
+  catch (e) { return null; }
+}
+function saveState(s) { localStorage.setItem(LS_STATE, JSON.stringify(s)); }
+
+function emptyState() {
+  return {
+    date: todayStr(),
+    energy: null,
+    focus: [],
+    wins: [],
+    park: [],
+    thoughts: [],
+    parkExpanded: false,
+    planVersion: null,
+  };
+}
+
+let state = loadState();
+if (!state || state.date !== todayStr()) {
+  // Keep thoughts/energy from same day; reset everything else if day rolled
+  const preserved = state && state.date === todayStr() ? state : null;
+  state = emptyState();
+  if (preserved) {
+    state.energy = preserved.energy;
+    state.thoughts = preserved.thoughts;
+  }
+  saveState(state);
+}
+
+// =================== Remote sync (GitHub Gist) ===================
+async function fetchRemotePlan() {
+  const cfg = loadConfig();
+  if (!cfg.gistId || !cfg.token) return { ok: false, reason: 'no-config' };
+
+  try {
+    setStatus('Syncing…', 'warn');
+    const res = await fetch(`https://api.github.com/gists/${cfg.gistId}`, {
+      headers: { 'Authorization': `token ${cfg.token}`, 'Accept': 'application/vnd.github+json' },
+    });
+    if (!res.ok) return { ok: false, reason: `http-${res.status}` };
+    const data = await res.json();
+    // Look for plan.json file
+    const file = data.files['plan.json'] || Object.values(data.files)[0];
+    if (!file) return { ok: false, reason: 'no-file' };
+    let content = file.content;
+    if (file.truncated) {
+      const r2 = await fetch(file.raw_url);
+      content = await r2.text();
+    }
+    const plan = JSON.parse(content);
+    return { ok: true, plan, updated: data.updated_at };
+  } catch (e) {
+    return { ok: false, reason: e.message };
+  }
+}
+
+function mergeRemotePlan(remote) {
+  // remote schema: { date, focus: [{text, meta}], wins: [text], park: [text], version }
+  const sameDay = state.date === remote.date;
+  const prevFocus = sameDay ? state.focus : [];
+  const prevWins  = sameDay ? state.wins  : [];
+
+  const newFocus = (remote.focus || []).map((f, i) => {
+    const prev = prevFocus.find(x => x.text === f.text);
+    return { text: f.text, meta: f.meta || '', done: prev ? prev.done : false, isNext: i === 0 };
+  });
+  // Recompute next = first undone
+  const nIdx = newFocus.findIndex(f => !f.done);
+  newFocus.forEach((f, i) => f.isNext = (i === nIdx));
+
+  state = {
+    ...state,
+    date: remote.date || todayStr(),
+    focus: newFocus,
+    wins: (remote.wins || []).map(w => {
+      const prev = prevWins.find(x => x.text === w);
+      return { text: w, done: prev ? prev.done : false };
+    }),
+    park: (remote.park || []).map(p => typeof p === 'string' ? { text: p } : p),
+    planVersion: remote.version || remote.date,
+  };
+  if (!sameDay) state.thoughts = [];
+  saveState(state);
+}
+
+async function syncNow() {
+  const result = await fetchRemotePlan();
+  if (!result.ok) {
+    if (result.reason === 'no-config') {
+      setStatus('Not connected — tap ⚙ to set up sync', 'warn');
+    } else {
+      setStatus(`Sync error: ${result.reason}`, 'error');
+    }
+    return;
+  }
+  mergeRemotePlan(result.plan);
+  setStatus(`Synced ${new Date(result.updated).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'})}`, 'ok');
+  render();
+}
+
+function setStatus(text, kind) {
+  const pill = document.getElementById('status-pill');
+  document.getElementById('status-text').textContent = text;
+  pill.classList.remove('error', 'warn');
+  if (kind === 'error') pill.classList.add('error');
+  else if (kind === 'warn') pill.classList.add('warn');
+}
+
+// =================== Render ===================
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function fmtDate() {
+  return new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+}
+function fmtTime(ts) {
+  return new Date(ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+function greeting() {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning, Abilash';
+  if (h < 17) return 'Hey, Abilash';
+  return 'Evening, Abilash';
+}
+
+function render() {
+  document.getElementById('greet').textContent = greeting();
+  document.getElementById('date').textContent = fmtDate();
+
+  document.querySelectorAll('.energy-btn').forEach(b => {
+    b.classList.toggle('active', state.energy === b.dataset.level);
+  });
+
+  // Focus
+  const focusEl = document.getElementById('focus-container');
+  const focusCount = document.getElementById('focus-count');
+  if (!state.focus || state.focus.length === 0) {
+    focusEl.innerHTML = `
+      <div class="empty">
+        <span class="empty-emoji">☕</span>
+        <div class="empty-title">No plan loaded yet</div>
+        <div class="empty-sub">Open the chat with Claude and do your morning brain dump.<br/>The plan will sync here automatically.</div>
+      </div>`;
+    focusCount.style.display = 'none';
+  } else {
+    focusCount.style.display = '';
+    focusCount.textContent = state.focus.length;
+    focusEl.innerHTML = '<div class="focus-list">' + state.focus.map((f, i) => `
+      <div class="focus-item ${f.done ? 'done' : ''} ${f.isNext && !f.done ? 'next' : ''}" data-idx="${i}">
+        <div class="check" data-toggle="1"></div>
+        <div class="focus-body">
+          <div class="focus-text">${escapeHtml(f.text)}</div>
+          ${f.meta ? `<div class="focus-meta">${escapeHtml(f.meta)}</div>` : ''}
+        </div>
+        <button class="more-btn" data-more="1">⋯</button>
+      </div>`).join('') + '</div>';
+  }
+
+  // Wins
+  const wEl = document.getElementById('wins-container');
+  const wSec = document.getElementById('wins-section');
+  if (state.wins && state.wins.length) {
+    wSec.style.display = '';
+    wEl.innerHTML = state.wins.map((w, i) => `<div class="chip ${w.done ? 'done' : ''}" data-idx="${i}">${escapeHtml(w.text)}</div>`).join('');
+  } else { wSec.style.display = 'none'; }
+
+  // Thoughts
+  const tEl = document.getElementById('thoughts-container');
+  const tSec = document.getElementById('thoughts-section');
+  if (state.thoughts && state.thoughts.length) {
+    tSec.style.display = '';
+    document.getElementById('thoughts-count').textContent = state.thoughts.length;
+    tEl.innerHTML = state.thoughts.slice().reverse().map(t => `
+      <div class="thought"><div>${escapeHtml(t.text)}</div><div class="thought-time">${fmtTime(t.ts)}</div></div>`).join('');
+  } else { tSec.style.display = 'none'; }
+
+  // Park
+  const pEl = document.getElementById('park-container');
+  const pSec = document.getElementById('park-section');
+  if (state.park && state.park.length) {
+    pSec.style.display = '';
+    document.getElementById('park-count').textContent = state.park.length;
+    pEl.classList.toggle('collapsed', !state.parkExpanded);
+    document.getElementById('park-toggle').textContent = state.parkExpanded ? '▼' : '▶';
+    pEl.innerHTML = state.park.map(p => `<div class="park-item">${escapeHtml(typeof p === 'string' ? p : p.text)}</div>`).join('');
+  } else { pSec.style.display = 'none'; }
+}
+
+// =================== Interactions ===================
+document.querySelectorAll('.energy-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    state.energy = state.energy === btn.dataset.level ? null : btn.dataset.level;
+    saveState(state); render();
+  });
+});
+
+let activeFocusIdx = null;
+document.getElementById('focus-container').addEventListener('click', (e) => {
+  const item = e.target.closest('.focus-item');
+  if (!item) return;
+  const idx = parseInt(item.dataset.idx);
+  if (e.target.dataset.more) {
+    activeFocusIdx = idx;
+    document.getElementById('action-sheet').classList.add('open');
+    document.getElementById('sheet-backdrop').classList.add('open');
+    return;
+  }
+  // Default: toggle done
+  state.focus[idx].done = !state.focus[idx].done;
+  const nIdx = state.focus.findIndex(f => !f.done);
+  state.focus.forEach((f, i) => f.isNext = (i === nIdx));
+  saveState(state); render();
+});
+
+document.getElementById('wins-container').addEventListener('click', (e) => {
+  const chip = e.target.closest('.chip');
+  if (!chip) return;
+  state.wins[parseInt(chip.dataset.idx)].done = !state.wins[parseInt(chip.dataset.idx)].done;
+  saveState(state); render();
+});
+
+document.getElementById('park-head').addEventListener('click', () => {
+  state.parkExpanded = !state.parkExpanded;
+  saveState(state); render();
+});
+
+// Action sheet
+function closeSheet() {
+  document.getElementById('action-sheet').classList.remove('open');
+  document.getElementById('sheet-backdrop').classList.remove('open');
+  activeFocusIdx = null;
+}
+document.getElementById('sheet-backdrop').addEventListener('click', closeSheet);
+document.getElementById('action-sheet').addEventListener('click', (e) => {
+  const item = e.target.closest('.sheet-item');
+  if (!item || activeFocusIdx === null) return;
+  const a = item.dataset.action;
+  const idx = activeFocusIdx;
+  if (a === 'toggle') {
+    state.focus[idx].done = !state.focus[idx].done;
+  } else if (a === 'next') {
+    state.focus.forEach((f, i) => f.isNext = (i === idx));
+  } else if (a === 'defer') {
+    state.park.push({ text: state.focus[idx].text + ' (deferred)' });
+    state.focus.splice(idx, 1);
+  } else if (a === 'park') {
+    state.park.push({ text: state.focus[idx].text });
+    state.focus.splice(idx, 1);
+  }
+  const nIdx = state.focus.findIndex(f => !f.done);
+  state.focus.forEach((f, i) => f.isNext = (i === nIdx));
+  saveState(state); closeSheet(); render();
+});
+
+// Capture
+const capInput = document.getElementById('capture-input');
+const capSend = document.getElementById('capture-send');
+capInput.addEventListener('input', () => {
+  capSend.classList.toggle('active', capInput.value.trim().length > 0);
+});
+function captureThought() {
+  const v = capInput.value.trim();
+  if (!v) return;
+  state.thoughts.push({ text: v, ts: Date.now() });
+  saveState(state);
+  capInput.value = '';
+  capSend.classList.remove('active');
+  render();
+}
+capSend.addEventListener('click', captureThought);
+capInput.addEventListener('keydown', e => { if (e.key === 'Enter') captureThought(); });
+
+// Settings overlay
+document.getElementById('gear-btn').addEventListener('click', () => {
+  const cfg = loadConfig();
+  document.getElementById('cfg-gist').value = cfg.gistId || '';
+  document.getElementById('cfg-token').value = cfg.token || '';
+  document.getElementById('settings-overlay').classList.add('open');
+});
+document.getElementById('cfg-cancel').addEventListener('click', () => {
+  document.getElementById('settings-overlay').classList.remove('open');
+});
+document.getElementById('cfg-save').addEventListener('click', async () => {
+  const gistId = document.getElementById('cfg-gist').value.trim();
+  const token = document.getElementById('cfg-token').value.trim();
+  if (!gistId || !token) { alert('Both fields are required.'); return; }
+  saveConfig({ gistId, token });
+  document.getElementById('settings-overlay').classList.remove('open');
+  await syncNow();
+});
+
+// Refresh
+document.getElementById('refresh-btn').addEventListener('click', syncNow);
+
+// Pull-to-refresh (basic)
+let touchStartY = 0;
+window.addEventListener('touchstart', e => { touchStartY = e.touches[0].clientY; }, { passive: true });
+window.addEventListener('touchend', e => {
+  const dy = e.changedTouches[0].clientY - touchStartY;
+  if (window.scrollY === 0 && dy > 100) syncNow();
+}, { passive: true });
+
+// Initial render + sync
+render();
+syncNow();
+
+// Periodic sync every 5 minutes when app is in foreground
+setInterval(() => { if (document.visibilityState === 'visible') syncNow(); }, 5 * 60 * 1000);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') syncNow();
+});
+
+// Register service worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
