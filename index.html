@@ -228,13 +228,16 @@
   }
   .capture-inner:focus-within { border-color: var(--accent); }
   .capture-icon { color: #C9C1B5; font-size: 16px; margin-right: 4px; }
-  .capture input {
+  .capture input, .capture textarea {
     flex: 1; border: none; outline: none;
     background: transparent; padding: 12px 0;
     font-size: 16px; /* >=16px to prevent iOS zoom */
     color: var(--ink); font-family: inherit;
+    line-height: 1.4; resize: none;
+    min-height: 0;
   }
-  .capture input::placeholder { color: #C9C1B5; }
+  .capture input::placeholder,
+  .capture textarea::placeholder { color: #C9C1B5; }
   .capture-send {
     background: var(--ink); color: white;
     border: none; padding: 10px 14px;
@@ -340,7 +343,7 @@
   <div class="greet" id="greet">Hey, Abilash</div>
   <div class="date" id="date"></div>
 </div>
-<div class="subhead">One thing at a time. The rest stays parked.</div>
+<div class="subhead">One thing at a time. The rest stays parked. <span style="opacity:0.35; font-size:10px; margin-left:6px;">build&nbsp;5</span></div>
 
 <div class="status-pill" id="status-pill">
   <span class="dot"></span><span id="status-text">Loading…</span>
@@ -377,11 +380,17 @@
   <div class="park-list collapsed" id="park-container"></div>
 </div>
 
-<!-- Capture box -->
+<!-- Capture box. Using a textarea (not an input) + a fake honeypot input
+     above it is the only reliable way to stop Chrome from autofilling
+     this field with the Gist ID it remembered from the settings overlay. -->
 <div class="capture">
   <div class="capture-inner">
+    <input type="text" name="dummy_autofill_decoy" autocomplete="off" tabindex="-1"
+           aria-hidden="true" style="position:absolute; opacity:0; height:0; width:0; pointer-events:none;" />
     <span class="capture-icon">✎</span>
-    <input id="capture-input" type="text" placeholder="Capture a stray thought…" autocomplete="off" />
+    <textarea id="capture-input" rows="1" placeholder="Capture a stray thought…"
+              autocomplete="off" autocorrect="off" autocapitalize="sentences" spellcheck="true"
+              name="thought_capture_abilash"></textarea>
     <button class="capture-send" id="capture-send">Save</button>
   </div>
 </div>
@@ -729,7 +738,13 @@ function captureThought() {
   render();
 }
 capSend.addEventListener('click', captureThought);
-capInput.addEventListener('keydown', e => { if (e.key === 'Enter') captureThought(); });
+capInput.addEventListener('keydown', e => {
+  // Enter submits, Shift+Enter inserts a newline (textarea default).
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    captureThought();
+  }
+});
 
 // Settings overlay
 document.getElementById('gear-btn').addEventListener('click', () => {
@@ -765,3 +780,16 @@ window.addEventListener('touchend', e => {
 render();
 syncNow();
 
+// Periodic sync every 5 minutes when app is in foreground
+setInterval(() => { if (document.visibilityState === 'visible') syncNow(); }, 5 * 60 * 1000);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') syncNow();
+});
+
+// Register service worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
