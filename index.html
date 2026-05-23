@@ -112,6 +112,31 @@
     font-size: 10px; letter-spacing: 0;
   }
 
+  /* Daily Anchors — tighter than focus, scannable. */
+  .anchors-list { display: flex; flex-direction: column; gap: 6px; }
+  .anchor-item {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+    display: flex; align-items: center; gap: 10px;
+    min-height: 44px; cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .anchor-item.done { opacity: 0.45; }
+  .anchor-item.done .anchor-text { text-decoration: line-through; }
+  .anchor-check {
+    width: 20px; height: 20px;
+    border: 2px solid #C9C1B5;
+    border-radius: 6px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: white;
+  }
+  .anchor-item.done .anchor-check { background: var(--done); border-color: var(--done); }
+  .anchor-item.done .anchor-check::after { content: '✓'; color: white; font-size: 13px; font-weight: 700; }
+  .anchor-text { font-size: 14px; color: var(--ink); font-weight: 500; flex: 1; min-width: 0; }
+  .anchor-meta { font-size: 11px; color: var(--ink-mute); margin-left: 6px; flex-shrink: 0; max-width: 50%; text-align: right; }
+
   /* Focus */
   .focus-list { display: flex; flex-direction: column; gap: 10px; }
   .focus-item {
@@ -343,7 +368,7 @@
   <div class="greet" id="greet">Hey, Abilash</div>
   <div class="date" id="date"></div>
 </div>
-<div class="subhead">One thing at a time. The rest stays parked. <span style="opacity:0.35; font-size:10px; margin-left:6px;">build&nbsp;5</span></div>
+<div class="subhead">One thing at a time. The rest stays parked. <span style="opacity:0.35; font-size:10px; margin-left:6px;">build&nbsp;6</span></div>
 
 <div class="status-pill" id="status-pill">
   <span class="dot"></span><span id="status-text">Loading…</span>
@@ -355,6 +380,11 @@
   <button class="energy-btn" data-level="high">⚡ Charged</button>
   <button class="energy-btn medium" data-level="medium">🌤 Okay</button>
   <button class="energy-btn low" data-level="low">🌫 Low</button>
+</div>
+
+<div class="section" id="anchors-section">
+  <div class="section-title">Daily Anchors <span class="count" id="anchors-count">0/0</span></div>
+  <div id="anchors-container"></div>
 </div>
 
 <div class="section" id="focus-section">
@@ -461,6 +491,17 @@ function loadState() {
 }
 function saveState(s) { localStorage.setItem(LS_STATE, JSON.stringify(s)); }
 
+// The fixed daily anchors. Same items every morning, just unchecked.
+// Edit this list to add/remove anchors — it's the single source of truth.
+function defaultDailyAnchors() {
+  return [
+    { id: 'pushups',         text: '10 push-ups after brushing',     meta: 'Brush → drop → ten',           done: false },
+    { id: 'breakfast-meds',  text: 'Protein breakfast → Inspiral',   meta: 'Food first, meds second',      done: false },
+    { id: 'office-by-10',    text: 'At the office by 10:00 AM',      meta: 'Protect 10–11:30 window',      done: false },
+    { id: 'night-routine',   text: 'Night routine',                  meta: 'Finasteride → serum → moist → brush', done: false }
+  ];
+}
+
 function emptyState() {
   return {
     date: todayStr(),
@@ -472,6 +513,7 @@ function emptyState() {
     thoughts: [],
     parkExpanded: false,
     planVersion: null,
+    dailyAnchors: defaultDailyAnchors(),
   };
 }
 
@@ -483,8 +525,22 @@ function emptyState() {
 let state = loadState() || emptyState();
 const todayKey = todayStr();
 if (state.lastVisitDate !== todayKey) {
+  // New day — reset ephemeral capture and re-uncheck the daily anchors.
   state.thoughts = [];
+  state.dailyAnchors = defaultDailyAnchors();
   state.lastVisitDate = todayKey;
+}
+// Migration: ensure dailyAnchors exists for state saved before this feature.
+// Also re-seed if the list shape changed (new anchors added in code).
+if (!state.dailyAnchors || !Array.isArray(state.dailyAnchors)) {
+  state.dailyAnchors = defaultDailyAnchors();
+} else {
+  const defaults = defaultDailyAnchors();
+  // Merge: keep existing done state for known IDs; add any new anchors as undone.
+  state.dailyAnchors = defaults.map(d => {
+    const prev = state.dailyAnchors.find(a => a.id === d.id);
+    return { ...d, done: prev ? !!prev.done : false };
+  });
 }
 saveState(state);
 
@@ -601,6 +657,19 @@ function render() {
     b.classList.toggle('active', state.energy === b.dataset.level);
   });
 
+  // Daily Anchors
+  const anchorsEl = document.getElementById('anchors-container');
+  const anchorsCount = document.getElementById('anchors-count');
+  const anchors = state.dailyAnchors || [];
+  const doneCount = anchors.filter(a => a.done).length;
+  anchorsCount.textContent = `${doneCount}/${anchors.length}`;
+  anchorsEl.innerHTML = '<div class="anchors-list">' + anchors.map((a, i) => `
+    <div class="anchor-item ${a.done ? 'done' : ''}" data-idx="${i}">
+      <div class="anchor-check"></div>
+      <div class="anchor-text">${escapeHtml(a.text)}</div>
+      ${a.meta ? `<div class="anchor-meta">${escapeHtml(a.meta)}</div>` : ''}
+    </div>`).join('') + '</div>';
+
   // Focus
   const focusEl = document.getElementById('focus-container');
   const focusCount = document.getElementById('focus-count');
@@ -679,6 +748,14 @@ document.getElementById('focus-container').addEventListener('click', (e) => {
   state.focus[idx].done = !state.focus[idx].done;
   const nIdx = state.focus.findIndex(f => !f.done);
   state.focus.forEach((f, i) => f.isNext = (i === nIdx));
+  saveState(state); render();
+});
+
+document.getElementById('anchors-container').addEventListener('click', (e) => {
+  const item = e.target.closest('.anchor-item');
+  if (!item) return;
+  const idx = parseInt(item.dataset.idx);
+  state.dailyAnchors[idx].done = !state.dailyAnchors[idx].done;
   saveState(state); render();
 });
 
