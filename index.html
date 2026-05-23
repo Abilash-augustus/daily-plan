@@ -455,6 +455,7 @@ function saveState(s) { localStorage.setItem(LS_STATE, JSON.stringify(s)); }
 function emptyState() {
   return {
     date: todayStr(),
+    lastVisitDate: todayStr(),
     energy: null,
     focus: [],
     wins: [],
@@ -465,17 +466,18 @@ function emptyState() {
   };
 }
 
-let state = loadState();
-if (!state || state.date !== todayStr()) {
-  // Keep thoughts/energy from same day; reset everything else if day rolled
-  const preserved = state && state.date === todayStr() ? state : null;
-  state = emptyState();
-  if (preserved) {
-    state.energy = preserved.energy;
-    state.thoughts = preserved.thoughts;
-  }
-  saveState(state);
+// Load state as-is. The plan's date (state.date) is set from the remote Gist
+// and may legitimately be older than today (a stale plan). It is NOT a signal
+// to wipe local state — that would lose the user's "done" marks on every
+// reload. Instead, track lastVisitDate separately to drive the day-roll cleanup
+// (clearing ephemeral captured thoughts when a new day starts).
+let state = loadState() || emptyState();
+const todayKey = todayStr();
+if (state.lastVisitDate !== todayKey) {
+  state.thoughts = [];
+  state.lastVisitDate = todayKey;
 }
+saveState(state);
 
 // =================== Remote sync (GitHub Gist) ===================
 async function fetchRemotePlan() {
@@ -550,7 +552,10 @@ async function syncNow() {
     return;
   }
   mergeRemotePlan(result.plan);
-  setStatus(`Synced ${new Date(result.updated).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'})}`, 'ok');
+  // Use the actual sync moment, not the Gist's last-modified timestamp.
+  // (The Gist might not have been updated in days; what the user cares about
+  // is whether THIS page is showing fresh data.)
+  setStatus(`Synced ${new Date().toLocaleTimeString([], {hour:'numeric', minute:'2-digit'})}`, 'ok');
   render();
 }
 
@@ -760,16 +765,3 @@ window.addEventListener('touchend', e => {
 render();
 syncNow();
 
-// Periodic sync every 5 minutes when app is in foreground
-setInterval(() => { if (document.visibilityState === 'visible') syncNow(); }, 5 * 60 * 1000);
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') syncNow();
-});
-
-// Register service worker
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
-}
-</script>
-</body>
-</html>
