@@ -4,7 +4,7 @@
 // instead of being trapped behind a stale cached HTML.
 // Plan data is fetched live from GitHub Gist on every load (no caching).
 
-const CACHE = 'adhd-pwa-shell-v4'; // bump on every deploy that changes shell behavior
+const CACHE = 'adhd-pwa-shell-v5'; // bump on every deploy that changes shell behavior
 const SHELL = [
   './manifest.webmanifest',
   './icon-192.png',
@@ -57,4 +57,36 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Cache-first for everything else (icons, manifest, etc.)
- 
+  event.respondWith(
+    caches.match(event.request).then((cached) => {
+      return cached || fetch(event.request).then((res) => {
+        if (res.ok && event.request.method === 'GET') {
+          const copy = res.clone();
+          caches.open(CACHE).then((cache) => cache.put(event.request, copy)).catch(() => {});
+        }
+        return res;
+      }).catch(() => cached);
+    })
+  );
+});
+
+// Push notifications (wired up later — placeholder)
+self.addEventListener('push', (event) => {
+  let data = { title: 'Brain check', body: 'something\'s waiting in the plan' };
+  try {
+    if (event.data) data = event.data.json();
+  } catch (e) {}
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: './icon-192.png',
+      badge: './icon-192.png',
+      tag: 'plan-nudge',
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(self.clients.openWindow('./'));
+});
