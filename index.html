@@ -45,6 +45,8 @@
     justify-content: space-between;
     align-items: baseline;
     margin-bottom: 6px;
+    /* Reserve space for the floating ⚙ gear button (fixed top-right). */
+    padding-right: 52px;
   }
   .greet { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
   .date  { font-size: 12px; color: var(--ink-mute); font-variant-numeric: tabular-nums; }
@@ -504,9 +506,16 @@ async function fetchRemotePlan() {
 
 function mergeRemotePlan(remote) {
   // remote schema: { date, focus: [{text, meta}], wins: [text], park: [text], version }
-  const sameDay = state.date === remote.date;
-  const prevFocus = sameDay ? state.focus : [];
-  const prevWins  = sameDay ? state.wins  : [];
+  //
+  // Done-state preservation: always match by item text, regardless of date.
+  // The previous logic gated preservation on state.date === remote.date, which
+  // wiped done marks every sync whenever the Gist plan was stale (older than
+  // today). Marking by text is the user's input — it should survive any sync.
+  // Day-roll resets (clearing yesterday's items entirely) are handled by the
+  // emptyState() reset at script init when state.date !== todayStr().
+  const remoteVersion = remote.version || remote.date;
+  const prevFocus = state.focus || [];
+  const prevWins  = state.wins  || [];
 
   const newFocus = (remote.focus || []).map((f, i) => {
     const prev = prevFocus.find(x => x.text === f.text);
@@ -525,9 +534,8 @@ function mergeRemotePlan(remote) {
       return { text: w, done: prev ? prev.done : false };
     }),
     park: (remote.park || []).map(p => typeof p === 'string' ? { text: p } : p),
-    planVersion: remote.version || remote.date,
+    planVersion: remoteVersion,
   };
-  if (!sameDay) state.thoughts = [];
   saveState(state);
 }
 
