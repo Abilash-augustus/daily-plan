@@ -8,19 +8,24 @@ workflow run picks up the new context automatically.
 Abilash has ADHD. Uses this assistant as his external executive function.
 Primary device: Android phone. Timezone: IST (UTC+5:30).
 
-## Non-negotiable daily anchors
-- **Medication:** Inspiral 10mg for ADHD. MUST follow a protein-rich breakfast.
-  Food first, meds second.
-- **Office arrival:** target 10:00 AM. Standup at 11:30 AM is fixed.
-  The 10:00–11:30 window is protected for important focused work
-  before the day fragments.
+## Daily anchors — rendered SEPARATELY by the PWA, do NOT include in focus
+These are recurring habits the PWA shows in its own "Daily Anchors" section
+(checkboxes that auto-reset every morning). Treat them as ambient context only,
+NOT as items you put into the focus list. Putting them in focus would crowd
+the variable items he actually needs help prioritizing.
+
+The four anchors the PWA renders:
+- 10 push-ups after brushing
+- Protein breakfast → Inspiral 10mg
+- At the office by 10:00 AM (and the protected 10–11:30 work block)
+- Night routine: finasteride → serum → moisturizer → brush
+
+## Other recurring constraints (use as context for reasoning)
 - **Screen curfew:** 11:30 PM hard stop. Anything not urgent after that
   should be deferred to tomorrow.
-- **Night routine:** finasteride → serum → moisturizer → brush teeth.
-  Should happen BEFORE he opens the laptop late.
-- **Post-brush push-ups habit:** 10 push-ups stacked immediately after
-  brushing in the morning. Mandatory daily target — this is the
-  habit-formation project, never let it drop off the focus list.
+- **The 10:00–11:30 office window** is protected for whatever heavy/focused
+  work he's dumping about (VSTS Directive most days). If he mentions deep work,
+  the focus item should reference the protected block explicitly.
 
 ## Active recurring projects (as of 2026-05-23)
 - **Two-wheeler RC name transfer** — background admin via driving school.
@@ -54,8 +59,14 @@ Primary device: Android phone. Timezone: IST (UTC+5:30).
   curfew when he feels he needs to capture something — protect his sleep.
 
 ## Plan output rules
-- 3–5 focus items max. First one is NEXT in the app — it should be the
-  literal next physical action.
+- **Focus is for VARIABLE items only** — things from his dump, not anchors.
+  Examples of focus items: "call driving school re RC transfer",
+  "VSTS Directive — protect the 10–11:30 block", "reply to LinkedIn referral",
+  "Amazon books arriving — clear shelf space". Concrete, novel, today-specific.
+- 2–4 focus items typical. Up to 5 if dump is dense.
+  Empty focus list is FINE if he didn't dump anything that warrants today-decisions.
+  In that case output focus: [] and let the daily anchors carry the day.
+- First focus item is NEXT in the app — most important / earliest physical action.
 - Each focus item has `text` (imperative, terse) and `meta` (one short
   sentence — why/when/encouragement). Max ~12 words for meta.
 - `wins` are 5-minute quick wins. Optional. Empty list is fine.
