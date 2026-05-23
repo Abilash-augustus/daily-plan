@@ -4,7 +4,7 @@
 // instead of being trapped behind a stale cached HTML.
 // Plan data is fetched live from GitHub Gist on every load (no caching).
 
-const CACHE = 'adhd-pwa-shell-v5'; // bump on every deploy that changes shell behavior
+const CACHE = 'adhd-pwa-shell-v6'; // bump on every deploy that changes shell behavior
 const SHELL = [
   './manifest.webmanifest',
   './icon-192.png',
