@@ -1,0 +1,54 @@
+name: Process Telegram brain dump
+
+# Runs four times in the morning window (IST 8:00, 9:00, 10:00, 11:00).
+# Each run is idempotent: if no new messages since last run, it exits early
+# without touching the Gist. This way Abilash can dump anytime in the morning
+# and the plan gets built/refined whenever the next run fires.
+#
+# GitHub Actions cron is in UTC and can drift 5-15 min. Acceptable.
+on:
+  schedule:
+    - cron: '30 2 * * *'   # 02:30 UTC = 08:00 IST
+    - cron: '30 3 * * *'   # 03:30 UTC = 09:00 IST
+    - cron: '30 4 * * *'   # 04:30 UTC = 10:00 IST
+    - cron: '30 5 * * *'   # 05:30 UTC = 11:00 IST
+  workflow_dispatch:        # allow manual trigger from GitHub UI
+
+permissions:
+  contents: write   # so we can commit the updated state file back
+
+jobs:
+  process:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run dump processor
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GIST_ID: ${{ secrets.GIST_ID }}
+          GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+        run: python scripts/process_dump.py
+
+      - name: Commit state update if changed
+        run: |
+          if [ -n "$(git status --porcelain state/last_processed.json)" ]; then
+            git config user.name  "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add state/last_processed.json
+            git commit -m "state: advance last_processed_update_id [skip ci]"
+            git push
+          else
+            echo "No state change to commit."
+          fi
